@@ -180,9 +180,11 @@ export function useHost(roomCode: string) {
   stopSharingRef.current = stopSharing;
 
   useEffect(() => {
+    const viewers = viewersRef.current;
+
     return () => {
-      viewersRef.current.forEach((v) => v.pc.close());
-      viewersRef.current.clear();
+      viewers.forEach((v) => v.pc.close());
+      viewers.clear();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
       }
