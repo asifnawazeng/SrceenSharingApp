@@ -207,7 +207,7 @@ export function useViewer(roomCode: string) {
         );
       }
     },
-    [handleOffer, sendJoin]
+    [handleOffer, sendJoin, stopJoinRetry]
   );
 
   const connect = useCallback(() => {
@@ -284,6 +284,17 @@ export function useViewer(roomCode: string) {
     connectedRef.current = false;
     stopJoinRetry();
 
+    const hostId = hostIdRef.current;
+    const channel = channelRef.current;
+
+    if (channel && hostId) {
+      broadcast(channel, {
+        type: 'viewer-leave',
+        from: clientIdRef.current,
+        to: hostId,
+      });
+    }
+
     const pc = pcRef.current;
     pcRef.current = null;
     if (pc) {
@@ -298,17 +309,9 @@ export function useViewer(roomCode: string) {
     hostIdRef.current = null;
     setStream(null);
 
-    const channel = channelRef.current;
     channelRef.current = null;
 
     if (channel) {
-      if (hostIdRef.current) {
-        broadcast(channel, {
-          type: 'viewer-leave',
-          from: clientIdRef.current,
-          to: hostIdRef.current,
-        });
-      }
       void supabase.removeChannel(channel);
     }
 

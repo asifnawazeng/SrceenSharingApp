@@ -345,6 +345,8 @@ export function useHost(roomCode: string) {
   stopSharingRef.current = stopSharing;
 
   useEffect(() => {
+    const viewers = viewersRef.current;
+
     return () => {
       stoppedRef.current = true;
 
@@ -352,11 +354,11 @@ export function useHost(roomCode: string) {
         clearInterval(heartbeatRef.current);
       }
 
-      for (const viewer of viewersRef.current.values()) {
+      for (const viewer of viewers.values()) {
         if (viewer.disconnectTimer) clearTimeout(viewer.disconnectTimer);
         viewer.pc.close();
       }
-      viewersRef.current.clear();
+      viewers.clear();
 
       streamRef.current?.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
