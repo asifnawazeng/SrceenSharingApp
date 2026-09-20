@@ -130,20 +130,31 @@ export function useHost(roomCode: string) {
         'broadcast',
         { event: 'signal' },
         ({ payload }: { payload: SignalMessage }) => {
-          handleSignal(payload);
+          void handleSignal(payload).catch((err) => {
+            setError(
+              err instanceof Error ? err.message : 'Signaling failed'
+            );
+            setStatus('failed');
+          });
         }
       );
 
+      channelRef.current = channel;
       channel.subscribe((state: string) => {
         if (state === 'SUBSCRIBED') {
           broadcast(channel, {
             type: 'host-ready',
             from: clientIdRef.current,
           });
+        } else if (
+          state === 'CHANNEL_ERROR' ||
+          state === 'TIMED_OUT' ||
+          state === 'CLOSED'
+        ) {
+          setError(`Signaling channel ${state.toLowerCase()}`);
+          setStatus('failed');
         }
       });
-
-      channelRef.current = channel;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to start screen sharing'

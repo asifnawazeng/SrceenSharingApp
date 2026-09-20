@@ -21,54 +21,63 @@ export function useViewer(roomCode: string) {
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const joinedRef = useRef(false);
 
+  const createViewerPeer = useCallback(() => {
+    if (pcRef.current) return pcRef.current;
+
+    const pc = createPeerConnection();
+    pcRef.current = pc;
+
+    pc.ontrack = (e) => {
+      const [incomingStream] = e.streams;
+      if (incomingStream) {
+        setStream(incomingStream);
+        setStatus('connected');
+      }
+    };
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        broadcast(channelRef.current, {
+          type: 'ice',
+          candidate: e.candidate.toJSON(),
+          from: clientIdRef.current,
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        setStatus('connected');
+      }
+      if (
+        pc.connectionState === 'disconnected' ||
+        pc.connectionState === 'failed' ||
+        pc.connectionState === 'closed'
+      ) {
+        setStatus('disconnected');
+      }
+    };
+
+    return pc;
+  }, []);
+
   const handleSignal = useCallback(async (message: SignalMessage) => {
     const fromId = message.from;
     if (fromId === clientIdRef.current) return;
 
     if (message.type === 'host-ready') {
-      if (joinedRef.current) return;
-      joinedRef.current = true;
-
-      const pc = createPeerConnection();
-      pcRef.current = pc;
-
-      pc.ontrack = (e) => {
-        setStream(e.streams[0]);
-        setStatus('connected');
-      };
-
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          broadcast(channelRef.current, {
-            type: 'ice',
-            candidate: e.candidate.toJSON(),
-            from: clientIdRef.current,
-          });
-        }
-      };
-
-      pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
-          setStatus('connected');
-        }
-        if (
-          pc.connectionState === 'disconnected' ||
-          pc.connectionState === 'failed' ||
-          pc.connectionState === 'closed'
-        ) {
-          setStatus('disconnected');
-        }
-      };
-
-      broadcast(channelRef.current, {
-        type: 'viewer-join',
-        from: clientIdRef.current,
-      });
+      createViewerPeer();
+      if (!joinedRef.current) {
+        joinedRef.current = true;
+        broadcast(channelRef.current, {
+          type: 'viewer-join',
+          from: clientIdRef.current,
+        });
+      }
       return;
     }
 
-    const pc = pcRef.current;
-    if (!pc) return;
+    const pc = createViewerPeer();
 
     if (message.type === 'offer') {
       await pc.setRemoteDescription(message.sdp);
@@ -93,7 +102,7 @@ export function useViewer(roomCode: string) {
     } else if (message.type === 'viewer-leave') {
       setStatus('disconnected');
     }
-  }, []);
+  }, [createViewerPeer]);
 
   const connect = useCallback(() => {
     if (channelRef.current) return;
@@ -109,21 +118,34 @@ export function useViewer(roomCode: string) {
       'broadcast',
       { event: 'signal' },
       ({ payload }: { payload: SignalMessage }) => {
-        handleSignal(payload);
+        void handleSignal(payload).catch((err) => {
+          setError(
+            err instanceof Error ? err.message : 'Signaling failed'
+          );
+          setStatus('failed');
+        });
       }
     );
 
+    channelRef.current = channel;
     channel.subscribe((state: string) => {
       if (state === 'SUBSCRIBED') {
+        createViewerPeer();
+        joinedRef.current = true;
         broadcast(channel, {
           type: 'viewer-join',
           from: clientIdRef.current,
         });
+      } else if (
+        state === 'CHANNEL_ERROR' ||
+        state === 'TIMED_OUT' ||
+        state === 'CLOSED'
+      ) {
+        setError(`Signaling channel ${state.toLowerCase()}`);
+        setStatus('failed');
       }
     });
-
-    channelRef.current = channel;
-  }, [roomCode, handleSignal]);
+  }, [roomCode, createViewerPeer, handleSignal]);
 
   const disconnect = useCallback(() => {
     if (pcRef.current) {
