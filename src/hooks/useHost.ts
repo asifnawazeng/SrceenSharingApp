@@ -110,9 +110,23 @@ export function useHost(roomCode: string) {
   const startSharing = useCallback(async () => {
     try {
       setError(null);
+      if (!window.isSecureContext) {
+        throw new Error(
+          'Screen sharing requires HTTPS. Open the deployed app using its https:// URL.'
+        );
+      }
+
+      if (!navigator.mediaDevices?.getDisplayMedia) {
+        throw new Error(
+          'This mobile browser does not support screen sharing. Try the latest Chrome on Android or Safari on iOS 17.2 or later.'
+        );
+      }
+
       const displayStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 30 },
-        audio: true,
+        video: { frameRate: { ideal: 30, max: 30 } },
+        // Mobile browsers generally reject system-audio capture. Audio can be
+        // added later only when the browser explicitly supports it.
+        audio: false,
       });
       streamRef.current = displayStream;
       setStream(displayStream);
@@ -156,9 +170,27 @@ export function useHost(roomCode: string) {
         }
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to start screen sharing'
-      );
+      if (err instanceof DOMException) {
+        if (err.name === 'NotAllowedError') {
+          setError(
+            'Screen sharing was cancelled or blocked. Allow screen capture when prompted and try again.'
+          );
+        } else if (err.name === 'NotSupportedError') {
+          setError(
+            'This browser cannot share a mobile screen. Try the latest Chrome on Android or Safari on iOS 17.2 or later.'
+          );
+        } else if (err.name === 'InvalidStateError') {
+          setError(
+            'Screen sharing must start from the button. Return to this page and tap Start Sharing again.'
+          );
+        } else {
+          setError(`Unable to capture this screen (${err.name}).`);
+        }
+      } else {
+        setError(
+          err instanceof Error ? err.message : 'Failed to start screen sharing'
+        );
+      }
       setStatus('failed');
     }
   }, [roomCode, handleSignal]);

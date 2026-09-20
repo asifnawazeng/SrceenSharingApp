@@ -20,3 +20,11 @@ Screen sharing uses Supabase Realtime for signaling and WebRTC for media. A
 TURN server is optional for local testing, but production deployments should
 set `VITE_TURN_URL`, `VITE_TURN_USERNAME`, and `VITE_TURN_CREDENTIAL` so
 viewers behind restrictive NATs or firewalls can connect.
+
+### Mobile screen sharing
+
+The mobile browser must support `getDisplayMedia` and the app must be opened
+over HTTPS. Mobile system-audio capture is not requested because many mobile
+browsers reject the whole screen-capture request when audio is included. If
+the browser does not support screen capture, use the latest Chrome on Android
+or Safari on iOS 17.2 or later.
