@@ -9,6 +9,17 @@ export function HomeView({ onStartSharing, onWatchScreen }: HomeViewProps) {
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center px-6 py-12">
       <div className="max-w-5xl w-full">
+        <div className="flex items-center justify-center gap-3 mb-12">
+          <img
+            src="/logo.svg"
+            alt="ScreenShare logo"
+            className="w-10 h-10 rounded-xl"
+          />
+          <span className="text-lg font-semibold tracking-tight">
+            ScreenShare
+          </span>
+        </div>
+
         {/* Hero */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 mb-6">
@@ -64,6 +75,10 @@ export function HomeView({ onStartSharing, onWatchScreen }: HomeViewProps) {
             </div>
           </button>
         </div>
+
+        <p className="text-center text-sm text-slate-500 mt-12">
+          ScreenShare by <span className="text-slate-300">Asif Nawazi</span>
+        </p>
       </div>
     </div>
   );
