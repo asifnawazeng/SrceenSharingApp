@@ -54,6 +54,7 @@ export function useHost(roomCode: string) {
             type: 'ice',
             candidate: e.candidate.toJSON(),
             from: clientIdRef.current,
+            to: fromId,
           });
         }
       };
@@ -82,11 +83,18 @@ export function useHost(roomCode: string) {
         type: 'offer',
         sdp: offer,
         from: clientIdRef.current,
+        to: fromId,
       });
       return;
     }
 
     if (!viewer) return;
+    if (
+      (message.type === 'answer' || message.type === 'ice') &&
+      message.to !== clientIdRef.current
+    ) {
+      return;
+    }
 
     if (message.type === 'answer') {
       await viewer.pc.setRemoteDescription(message.sdp);

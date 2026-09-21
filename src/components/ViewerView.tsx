@@ -101,6 +101,7 @@ export function ViewerView({ roomCode, onBack }: ViewerViewProps) {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="w-full h-full object-contain"
               />
               <button

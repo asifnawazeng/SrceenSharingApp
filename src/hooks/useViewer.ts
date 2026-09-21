@@ -19,7 +19,9 @@ export function useViewer(roomCode: string) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const pendingLocalCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const joinedRef = useRef(false);
+  const hostIdRef = useRef<string | null>(null);
 
   const createViewerPeer = useCallback(() => {
     if (pcRef.current) return pcRef.current;
@@ -37,11 +39,17 @@ export function useViewer(roomCode: string) {
 
     pc.onicecandidate = (e) => {
       if (e.candidate) {
-        broadcast(channelRef.current, {
-          type: 'ice',
-          candidate: e.candidate.toJSON(),
-          from: clientIdRef.current,
-        });
+        const candidate = e.candidate.toJSON();
+        if (hostIdRef.current) {
+          broadcast(channelRef.current, {
+            type: 'ice',
+            candidate,
+            from: clientIdRef.current,
+            to: hostIdRef.current,
+          });
+        } else {
+          pendingLocalCandidatesRef.current.push(candidate);
+        }
       }
     };
 
@@ -64,6 +72,12 @@ export function useViewer(roomCode: string) {
   const handleSignal = useCallback(async (message: SignalMessage) => {
     const fromId = message.from;
     if (fromId === clientIdRef.current) return;
+    if (
+      (message.type === 'offer' || message.type === 'ice') &&
+      message.to !== clientIdRef.current
+    ) {
+      return;
+    }
 
     if (message.type === 'host-ready') {
       createViewerPeer();
@@ -80,6 +94,16 @@ export function useViewer(roomCode: string) {
     const pc = createViewerPeer();
 
     if (message.type === 'offer') {
+      hostIdRef.current = fromId;
+      for (const candidate of pendingLocalCandidatesRef.current) {
+        broadcast(channelRef.current, {
+          type: 'ice',
+          candidate,
+          from: clientIdRef.current,
+          to: fromId,
+        });
+      }
+      pendingLocalCandidatesRef.current = [];
       await pc.setRemoteDescription(message.sdp);
       for (const candidate of pendingCandidatesRef.current) {
         await pc.addIceCandidate(candidate);
@@ -92,6 +116,7 @@ export function useViewer(roomCode: string) {
         type: 'answer',
         sdp: answer,
         from: clientIdRef.current,
+        to: fromId,
       });
     } else if (message.type === 'ice') {
       if (pc.remoteDescription) {
@@ -165,6 +190,8 @@ export function useViewer(roomCode: string) {
 
     joinedRef.current = false;
     pendingCandidatesRef.current = [];
+    pendingLocalCandidatesRef.current = [];
+    hostIdRef.current = null;
     setStatus('idle');
   }, []);
 
