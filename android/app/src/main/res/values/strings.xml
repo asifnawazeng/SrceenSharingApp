@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Screen Share</string>
+    <string name="capture_notification">Screen sharing is active</string>
+</resources>

@@ -1,0 +1,4 @@
+# Copy to android/local.properties and set values for your machine/build.
+sdk.dir=C:\\Users\\you\\AppData\\Local\\Android\\Sdk
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-public-key
